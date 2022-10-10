@@ -1,7 +1,7 @@
 from flask import Flask
 from flask_restful import Api
 from resources.food import Food, Foodstuff
-from resources.meals import Meal, ProductsToMeals, MealsList
+from resources.meals_fav import Meal, ProductsToMeals, MealsList
 from models.time import TimeModel
 from models.daily_meals import DailyMealsModel
 from resources.time import Time
@@ -30,9 +30,9 @@ def create_dates_in_tables():
 
 api.add_resource(Foodstuff, '/food/<string:foodstuff>')
 api.add_resource(Food, '/food')
-api.add_resource(Meal, '/meal/<string:name>')
-api.add_resource(ProductsToMeals, '/meal/products/<string:name>')
-api.add_resource(MealsList, '/meal')
+api.add_resource(Meal, '/fav-meal/<string:name>')
+api.add_resource(ProductsToMeals, '/fav-meal/products/<string:name>')
+api.add_resource(MealsList, '/fav-meal')
 api.add_resource(Time, "/time")
 api.add_resource(DailyMeals, '/daily-meals/<string:date>')
 api.add_resource(DailyMealsActual, '/daily-meals')

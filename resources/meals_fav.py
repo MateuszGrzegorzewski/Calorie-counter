@@ -1,4 +1,4 @@
-from models.meals import MealModel, ProductsToMealsModel
+from models.meals_fav import MealModel, ProductsToMealsModel
 from models.food import FoodModel
 from flask_restful import Resource, reqparse
 
@@ -90,4 +90,4 @@ class ProductsToMeals(Resource):
 
 class MealsList(Resource):
     def get(self):
-        return {'meals': [meal.name() for meal in MealModel.query.all()]}
+        return {'Favourite meals': [meal.name for meal in MealModel.query.all()]}

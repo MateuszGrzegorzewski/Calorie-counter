@@ -3,12 +3,12 @@ from models.food import FoodModel
 
 
 class MealModel(db.Model):
-    __tablename__ = 'meals'
+    __tablename__ = 'meals-favourite'
 
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(100))
     product_to_meals = db.relationship(
-        'ProductsToMealsModel', backref='meals', uselist=False)
+        'ProductsToMealsModel', backref='meals-favourite', lazy='dynamic')
 
     def __init__(self, name):
         self.name = name
@@ -30,10 +30,10 @@ class MealModel(db.Model):
 
 
 class ProductsToMealsModel(db.Model):
-    __tablename__ = 'products_to_meals'
+    __tablename__ = 'products_to_favourite_meal'
 
     id = db.Column(db.Integer, primary_key=True)
-    name_of_meal = db.Column(db.String(255), db.ForeignKey('meals.name'))
+    name_of_meal = db.Column(db.String(255), db.ForeignKey('meals-favourite.name'))
     product = db.Column(db.String(100), db.ForeignKey('groceries.foodstuff'))
     weight = db.Column(db.Integer)
 

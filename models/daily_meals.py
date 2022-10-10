@@ -7,8 +7,10 @@ class DailyMealsModel(db.Model):
     __tablename__ = "mealtimes"
 
     id = db.Column(db.Integer, primary_key=True)
-    date = db.Column(db.String(100))
+    date = db.Column(db.String(100), db.ForeignKey('time.date'))
     mealtime = db.Column(db.String(100))
+    products = db.relationship(
+        'ProductsToDailyMealsModel', backref='mealtimes', lazy='joined')
 
     def __init__(self, date, mealtime):
         self.date = date
@@ -36,7 +38,8 @@ class ProductsToDailyMealsModel(db.Model):
 
     id = db.Column(db.Integer, primary_key=True)
     date_of_meal = db.Column(db.String(100))
-    name_of_meal = db.Column(db.String(100))
+    name_of_meal = db.Column(
+        db.String(100), db.ForeignKey('mealtimes.mealtime'))
     product = db.Column(db.String(100), db.ForeignKey('groceries.foodstuff'))
     weight = db.Column(db.Integer)
 

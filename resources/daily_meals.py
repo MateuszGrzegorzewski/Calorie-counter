@@ -1,16 +1,23 @@
 from flask_restful import Resource, reqparse
 from models.food import FoodModel
 from models.daily_meals import DailyMealsModel, ProductsToDailyMealsModel
-from resources.meals import ProductsToMeals
 from datetime import date
+from models.meals_fav import ProductsToMealsModel as ProductsOfFavouriteMeal
 
 
 class ProductsToDailyMeals(Resource):
     parser = reqparse.RequestParser()
-    parser.add_argument('product', type=str, required=True,
-                        help='This field can not be empty')
-    parser.add_argument('weight', type=int, required=True,
-                        help='This field can not be empty')
+    parser.add_argument('product', type=str, required=False,
+                        default=None, help='Product')
+    parser.add_argument('weight', type=int, required=False,
+                        default=None, help='Weight of')
+    parser.add_argument('fav-meal', type=str, required=False, default=None)
+
+    parser_to_put = reqparse.RequestParser()
+    parser_to_put.add_argument('product', type=str, required=True,
+                               help='This field can not be empty')
+    parser_to_put.add_argument('weight', type=int, required=True,
+                               help='This field can not be empty')
 
     parser_to_delete = reqparse.RequestParser()
     parser_to_delete.add_argument('product', type=str, required=True,
@@ -42,12 +49,24 @@ class ProductsToDailyMeals(Resource):
 
         if date_check:
             if meal_check:
+                if ProductsOfFavouriteMeal.find_by_name(data['fav-meal']):
+                    products = ProductsOfFavouriteMeal.find_by_name_all(
+                        data['fav-meal'])
+                    for product in products:
+                        if ProductsToDailyMealsModel.find_by_ingredient(
+                                mealtime, date, product.product) is None:
+                            ProductsToDailyMealsModel(
+                                date, mealtime, product.product, product.weight).save_to_db()
+                        elif ProductsToDailyMealsModel.find_by_ingredient(
+                                mealtime, date, product.product):
+                            pass
+                    return {"message": 'Products added successfully'}
                 if ingredient_check_groceries:
                     if ingredient_check_products_to_meals is None:
                         meal.save_to_db()
                         return meal.json(), 201
                     return {'message': 'This ingredient exists'}
-                return {'message': 'Ingredient does not exist in database. Firstly, you have to create it.'}, 404
+                return {"meal error": 'This meal does not exists or wrong name was given', 'Ingredient error': 'Ingredient does not exist in database. Firstly, you have to create it. Another option is that no data has been entered.'}, 404
             return {'message': 'Mealtime is not exists. You can choose breakfast, lunch, snack or dinner'}
         return {'message': 'You write date in wrong way. Proper way is: yyyy-mm-dd. Example is 2022-10-08. It is also possible, that administrator does not upgrade data base'}
 
@@ -68,7 +87,7 @@ class ProductsToDailyMeals(Resource):
         return {'message': 'You write date in wrong way. Proper way is: yyyy-mm-dd. Example is 2022-10-08. It is also possible, that administrator does not upgrade data base'}
 
     def put(self, mealtime, date=date.today()):
-        data = ProductsToMeals.parser.parse_args()
+        data = ProductsToDailyMeals.parser_to_put.parse_args()
         meal_check = DailyMealsModel.find_by_mealtime(mealtime)
         date_check = DailyMealsModel.find_by_date(date)
         ingredient = ProductsToDailyMealsModel.find_by_ingredient(
