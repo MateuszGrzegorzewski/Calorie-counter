@@ -1,135 +1,131 @@
-from flask_restful import Resource, reqparse
-from models.food import FoodModel
 from models.daily_meals import DailyMealsModel, ProductsToDailyMealsModel
 from datetime import date
-from models.meals_fav import ProductsToMealsModel as ProductsOfFavouriteMeal
+from models.meals_fav import ProductsToMealsModel as ProductsOfFavouriteMeal, MealModel
+from flask_smorest import Blueprint, abort
+from flask.views import MethodView
+from schemas import DailyMealsSchema, DailyMealsUpdateSchema, DailyMealsFavmealSchema
+from sqlalchemy.exc import IntegrityError
 
 
-class ProductsToDailyMeals(Resource):
-    parser = reqparse.RequestParser()
-    parser.add_argument('product', type=str, required=False,
-                        default=None, help='Product')
-    parser.add_argument('weight', type=int, required=False,
-                        default=None, help='Weight of')
-    parser.add_argument('fav-meal', type=str, required=False, default=None)
+blp = Blueprint("DailyMeals", __name__,
+                description="Operations on daily meals")
 
-    parser_to_put = reqparse.RequestParser()
-    parser_to_put.add_argument('product', type=str, required=True,
-                               help='This field can not be empty')
-    parser_to_put.add_argument('weight', type=int, required=True,
-                               help='This field can not be empty')
 
-    parser_to_delete = reqparse.RequestParser()
-    parser_to_delete.add_argument('product', type=str, required=True,
-                                  help='This field can not be empty')
-
+@blp.route('/daily-meals/products/<string:mealtime>/<string:date>')
+class ProductsToDailyMeals(MethodView):
     def get(self, mealtime, date=date.today()):
-        meal_check = DailyMealsModel.find_by_mealtime(mealtime)
-        date_check = DailyMealsModel.find_by_date(date)
-        meal = ProductsToDailyMealsModel.find_by_date_and_name_all(
-            mealtime, date)
-        calories = ProductsToDailyMealsModel.calorie_count(meal)
+        meal = ProductsToDailyMealsModel.find_by_date_and_mealtime(
+            date, mealtime)
+        calories = ProductsToDailyMealsModel.calorie_count(mealtime, date)
 
-        if date_check:
-            if meal_check:
-                return {'Date': date_check.date, 'Meal': meal_check.mealtime, 'Ingredients': [s.json_ingredients() for s in meal], "Calories of the meal": calories}
-            return {'message': 'Mealtime is not exists. You can choose breakfast, lunch, snack or dinner'}
-        return {'message': 'You write date in wrong way. Proper way is: yyyy-mm-dd. Example is 2022-10-08. It is also possible, that administrator does not upgrade data base'}
+        return {'Date': date.strftime('%Y-%m-%d'), 'Meal': mealtime, 'Products': [{"Product": e.food.foodstuff, "Weight": e.weight} for e in meal], "Calories of the meal": calories}
 
-    def post(self, mealtime, date=date.today()):
-        data = ProductsToDailyMeals.parser.parse_args()
-        meal = ProductsToDailyMealsModel(
-            date, mealtime, data['product'], data['weight'])
-        meal_check = DailyMealsModel.find_by_mealtime(mealtime)
-        date_check = DailyMealsModel.find_by_date(date)
-        ingredient_check_products_to_meals = ProductsToDailyMealsModel.find_by_ingredient(
-            mealtime, date, data['product'])
-        ingredient_check_groceries = FoodModel.find_by_foodstuff(
-            data['product'])
+    @blp.arguments(DailyMealsSchema)
+    def post(self, mealtime_data, mealtime, date=date.today()):
+        if DailyMealsModel.find_by_date_and_mealtime(date, mealtime) is None:
+            abort(
+                404, message="Date or mealtime or both not found. Check that the entered values are correct")
 
-        if date_check:
-            if meal_check:
-                if ProductsOfFavouriteMeal.find_by_name(data['fav-meal']):
-                    products = ProductsOfFavouriteMeal.find_by_name_all(
-                        data['fav-meal'])
-                    for product in products:
-                        if ProductsToDailyMealsModel.find_by_ingredient(
-                                mealtime, date, product.product) is None:
-                            ProductsToDailyMealsModel(
-                                date, mealtime, product.product, product.weight).save_to_db()
-                        elif ProductsToDailyMealsModel.find_by_ingredient(
-                                mealtime, date, product.product):
-                            pass
-                    return {"message": 'Products added successfully'}
-                if ingredient_check_groceries:
-                    if ingredient_check_products_to_meals is None:
-                        meal.save_to_db()
-                        return meal.json(), 201
-                    return {'message': 'This ingredient exists'}
-                return {"meal error": 'This meal does not exists or wrong name was given', 'Ingredient error': 'Ingredient does not exist in database. Firstly, you have to create it. Another option is that no data has been entered.'}, 404
-            return {'message': 'Mealtime is not exists. You can choose breakfast, lunch, snack or dinner'}
-        return {'message': 'You write date in wrong way. Proper way is: yyyy-mm-dd. Example is 2022-10-08. It is also possible, that administrator does not upgrade data base'}
+        if ProductsToDailyMealsModel.find_by_product(date, mealtime, mealtime_data['product_id']):
+            abort(500, message="The product already exists in this mealtime")
 
-    def delete(self, mealtime, date=date.today()):
-        data = ProductsToDailyMeals.parser_to_delete.parse_args()
-        meal_check = DailyMealsModel.find_by_mealtime(mealtime)
-        date_check = DailyMealsModel.find_by_date(date)
-        ingredient = ProductsToDailyMealsModel.find_by_ingredient(
-            mealtime, date, data['product'])
-
-        if date_check:
-            if meal_check:
-                if ingredient:
-                    ingredient.delete_from_db()
-                    return {'message': 'Ingredient deleted successfully'}
-                return {'message': 'Ingredient in the meal not found'}, 404
-            return {'message': 'Mealtime is not exists. You can choose breakfast, lunch, snack or dinner'}
-        return {'message': 'You write date in wrong way. Proper way is: yyyy-mm-dd. Example is 2022-10-08. It is also possible, that administrator does not upgrade data base'}
-
-    def put(self, mealtime, date=date.today()):
-        data = ProductsToDailyMeals.parser_to_put.parse_args()
-        meal_check = DailyMealsModel.find_by_mealtime(mealtime)
-        date_check = DailyMealsModel.find_by_date(date)
-        ingredient = ProductsToDailyMealsModel.find_by_ingredient(
-            mealtime, date, data['product'])
-
-        if date_check:
-            if meal_check:
-                if ingredient:
-                    ingredient.weight = data['weight']
-                    ingredient.save_to_db()
-                    return ingredient.json_ingredients(), 201
-                return {'message': 'Ingredient in the meal not found'}, 404
-            return {'message': 'Mealtime is not exists. You can choose breakfast, lunch, snack or dinner'}
-        return {'message': 'You write date in wrong way. Proper way is: yyyy-mm-dd. Example is 2022-10-08. It is also possible, that administrator does not upgrade data base'}
+        try:
+            meal = ProductsToDailyMealsModel(
+                date, mealtime, mealtime_data['product_id'], mealtime_data['weight'])
+            meal.save_to_db()
+            return {"Product_id": meal.product_id, "Product": meal.food.foodstuff, "Weight": meal.weight}, 201
+            # lepsze zwracanie wartości !!!!!!
+        except IntegrityError:
+            abort(500, message="Error occured during adding a product")
 
 
+@blp.route('/daily-meals/products/<string:mealtime>/<string:date>/favmeal')
+class FavmealsToDailyMeals(MethodView):
+    @blp.arguments(DailyMealsFavmealSchema)
+    def post(self, mealtime_data, mealtime, date=date.today()):
+        favmeal = MealModel.query.get_or_404(mealtime_data['favmeal_id'])
+        favmeals = ProductsOfFavouriteMeal.query.filter_by(
+            favmeal_id=favmeal.id).all()
+
+        added_products = []
+
+        for product in favmeals:
+            if ProductsToDailyMealsModel.find_by_product(date, mealtime, product.product_id):
+                continue
+            try:
+                meal = ProductsToDailyMealsModel(
+                    date, mealtime, product.product_id, product.weight)
+                meal.save_to_db()
+            except IntegrityError:
+                abort(500, message="Error occured during adding a product")
+
+            added_products.append({"product_id": meal.product_id,
+                                   "product": meal.food.foodstuff, "weight": meal.weight})
+
+        return {"Added products": added_products}, 201
+
+
+@blp.route('/daily-meals/products/<string:mealtime>/<string:date>/<string:product_id>')
+class ProductOfDailyMeals(MethodView):
+    def delete(self, mealtime, date=date.today(), product_id=None):
+        product = ProductsToDailyMealsModel.find_by_product(
+            date, mealtime, product_id)
+
+        if product is None:
+            abort(404, message="Product not found in this mealtime")
+
+        product.delete_from_db()
+        return {'message': "Product deleted successfully"}
+
+    @blp.arguments(DailyMealsUpdateSchema)
+    def put(self, mealtime_data, mealtime, date=date.today(), product_id=None):
+        product = ProductsToDailyMealsModel.find_by_product(
+            date, mealtime, product_id)
+
+        if product is None:
+            abort(404, message="Product not found in this mealtime")
+
+        product.weight = mealtime_data['weight']
+        product.save_to_db()
+        return {"Product_id": product.product_id, "Product": product.food.foodstuff, "Weight": product.weight}
+
+        # lepsze zwracanie wartości
+
+
+@blp.route('/daily-meals/products/<string:mealtime>')
 class ProductsToDailyMealsActual(ProductsToDailyMeals):
     pass
 
 
-class DailyMeals (Resource):
+@blp.route('/daily-meals/products/<string:mealtime>/favmeal')
+class FavmealsToDailyMealsActual(FavmealsToDailyMeals):
+    pass
+
+
+@blp.route('/daily-meals/products/<string:mealtime>/<string:product_id>')
+class ProductOfDailyMealsActual(ProductOfDailyMeals):
+    pass
+
+
+@blp.route('/daily-meals/<string:date>')
+class DailyMeals (MethodView):
     def get(self, date=date.today()):
-        date_check = DailyMealsModel.find_by_date(date)
-        breakfast = ProductsToDailyMealsModel.find_by_date_and_name_all(
-            'breakfast', date)
+        breakfast = ProductsToDailyMealsModel.find_by_date_and_mealtime(
+            date, 'breakfast')
         calories_of_breakfast = ProductsToDailyMealsModel.calorie_count(
-            breakfast)
-
-        lunch = ProductsToDailyMealsModel.find_by_date_and_name_all(
-            'lunch', date)
+            'breakfast', date)
+        lunch = ProductsToDailyMealsModel.find_by_date_and_mealtime(
+            date, 'lunch')
         calories_of_lunch = ProductsToDailyMealsModel.calorie_count(
-            lunch)
-
-        snack = ProductsToDailyMealsModel.find_by_date_and_name_all(
-            'snack', date)
+            'lunch', date)
+        snack = ProductsToDailyMealsModel.find_by_date_and_mealtime(
+            date, 'snack')
         calories_of_snack = ProductsToDailyMealsModel.calorie_count(
-            snack)
-
-        dinner = ProductsToDailyMealsModel.find_by_date_and_name_all(
-            'dinner', date)
+            'snack', date)
+        dinner = ProductsToDailyMealsModel.find_by_date_and_mealtime(
+            date, 'dinner')
         calories_of_dinner = ProductsToDailyMealsModel.calorie_count(
-            dinner)
+            'dinner', date)
 
         breakfast_json = {'Breakfast': [s.json_ingredients(
         ) for s in breakfast], 'Calories of the meal': calories_of_breakfast}
@@ -139,14 +135,13 @@ class DailyMeals (Resource):
         ) for s in snack], 'Calories of the meal': calories_of_snack}
         dinner_json = {'Dinner': [s.json_ingredients(
         ) for s in dinner], 'Calories of the meal': calories_of_dinner}
-        date_json = {'Date': date_check.date}
-        sum_of_calories_json = {'Calories of the day': calories_of_breakfast +
-                                calories_of_lunch+calories_of_snack+calories_of_dinner}
 
-        if date_check:
-            return date_json, sum_of_calories_json, breakfast_json, lunch_json, snack_json, dinner_json
-        return {'message': 'You write date in wrong way. Proper way is: yyyy-mm-dd. Example is 2022-10-08. It is also possible, that administrator does not upgrade data base'}
+        total_calories = calories_of_breakfast + \
+            calories_of_lunch+calories_of_snack+calories_of_dinner
+
+        return {'Date': date.strftime('%Y-%m-%d'), 'Calories of the day': total_calories, "Meals": [breakfast_json, lunch_json, snack_json, dinner_json]}
 
 
+@blp.route('/daily-meals')
 class DailyMealsActual(DailyMeals):
     pass

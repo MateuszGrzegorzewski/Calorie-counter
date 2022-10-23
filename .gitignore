@@ -2,4 +2,10 @@ __pycache__/
 *.pyc
 data.db
 Pomysły i zadania
+.env
 .venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/

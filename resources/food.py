@@ -1,59 +1,55 @@
 from models.food import FoodModel
-from flask_restful import Resource, reqparse
+from flask_smorest import Blueprint, abort
+from flask.views import MethodView
+from schemas import FoodSchema, FoodUpdateSchema
+from sqlalchemy.exc import IntegrityError
 
 
-class Food(Resource):
-    parser = reqparse.RequestParser()
-    parser.add_argument('foodstuff', type=str,
-                        required=True, help="This field can not be empty")
-    parser.add_argument('calories', type=int,
-                        required=True, help="This field can not be empty")
+blp = Blueprint("food", __name__, description="Operations on groceries")
 
-    parser_to_delete = reqparse.RequestParser()
-    parser_to_delete.add_argument('foodstuff', type=str,
-                                  required=True, help="This field can not be empty")
 
+@blp.route("/food")
+class Food(MethodView):
+    @blp.response(200, FoodSchema(many=True))
     def get(self):
-        return {'groceries': [food.json() for food in FoodModel.query.all()]}
+        food = FoodModel.query.all()
+        return food
 
-    def post(self):
-        data = Food.parser.parse_args()
-
-        if FoodModel.find_by_foodstuff(data['foodstuff']):
-            return {'message': 'This food is already exist'}
-
-        food = FoodModel(data['foodstuff'], data['calories'])
-        food.save_to_db()
-        return food.json(), 201
-
-    def delete(self):
-        data = Food.parser_to_delete.parse_args()
-        food = FoodModel.find_by_foodstuff(data['foodstuff'])
-
-        if food:
-            food.delete_from_db()
-        else:
-            return {'message': 'Food is not exist'}, 404
-        return {'message': 'This food has been deleted'}
-
-    def put(self):
-        data = Food.parser.parse_args()
-
-        food = FoodModel.find_by_foodstuff(data['foodstuff'])
-
-        if food is None:
-            food = FoodModel(data['foodstuff'], data['calories'])
-        else:
-            food.calories = data['calories']
-
-        food.save_to_db()
-        return food.json(), 201
+    @blp.arguments(FoodSchema)
+    @blp.response(201, FoodSchema)
+    def post(self, food_data):
+        try:
+            food = FoodModel(food_data['foodstuff'], food_data['calories'])
+            food.save_to_db()
+            return food
+        except IntegrityError:
+            abort(500, message='Food already exists')
 
 
-class Foodstuff(Resource):
-    def get(self, foodstuff):
-        food = FoodModel.find_by_foodstuff(foodstuff)
+@blp.route("/food/<string:food_id>")
+class Foodstuff(MethodView):
+    @blp.response(200, FoodSchema)
+    def get(self, food_id):
+        food = FoodModel.query.get_or_404(food_id)
+        return food
+
+    def delete(self, food_id):
+        food = FoodModel.query.get_or_404(food_id)
+
+        food.delete_from_db()
+        return {"message": "Foodstuff deleted successfully"}, 200
+
+    @blp.arguments(FoodUpdateSchema)
+    @blp.response(200, FoodSchema)
+    def put(self, food_data, food_id):
+        food = FoodModel.query.get(food_id)
 
         if food:
-            return food.json()
-        return {'message': 'This food is not exist'}, 404
+            food.foodstuff = food_data['foodstuff']
+            food.calories = food_data['calories']
+        else:
+            food = FoodModel(**food_data)
+            food.id = food_id
+
+        food.save_to_db()
+        return food

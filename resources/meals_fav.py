@@ -1,93 +1,96 @@
+from sqlalchemy.exc import IntegrityError
 from models.meals_fav import MealModel, ProductsToMealsModel
-from models.food import FoodModel
-from flask_restful import Resource, reqparse
+from flask_smorest import Blueprint, abort
+from flask.views import MethodView
+from schemas import FavouriteMealSchema, ProductsToFavouriteMealSchema, ProductsToFavouriteMealUpdateSchema
 
 
-class Meal(Resource):
-
-    def post(self, name):
-        if MealModel.find_by_name(name):
-            return {'message': 'This meal exists'}
-
-        meal = MealModel(name)
-
-        meal.save_to_db()
-        return meal.json(), 201
-
-    def delete(self, name):
-        meal = MealModel.find_by_name(name)
-
-        if meal:
-            meal.delete_from_db()
-            return {'message': 'Meal deleted successfully'}
-        return {'message': 'Meal not found'}, 404
+blp = Blueprint("Favourite meals", __name__,
+                description="Operations on favourite meals")
 
 
-class ProductsToMeals(Resource):
-    parser = reqparse.RequestParser()
-    parser.add_argument('product', type=str, required=True,
-                        help='This field can not be empty')
-    parser.add_argument('weight', type=int, required=True,
-                        help='This field can not be empty')
-
-    parser_to_delete = reqparse.RequestParser()
-    parser_to_delete.add_argument('product', type=str, required=True,
-                                  help='This field can not be empty')
-
-    def get(self, name):
-        meal = ProductsToMealsModel.find_by_name_all(name)
-        calories = ProductsToMealsModel.calorie_count(meal)
-
-        if meal:
-            return {'Meal': name, 'Ingredients': [s.json_ingredients() for s in meal], "Calories of the meal": calories}
-        return {'message': 'This meal does not exist'}, 404
-
-    def post(self, name):
-        data = ProductsToMeals.parser.parse_args()
-        meal = ProductsToMealsModel(name, data['product'], data['weight'])
-        meal_check = MealModel.find_by_name(name)
-        ingredient_check_products_to_meals = ProductsToMealsModel.find_by_ingredient(
-            name, data['product'])
-        ingredient_check_groceries = FoodModel.find_by_foodstuff(
-            data['product'])
-
-        if meal_check:
-            if ingredient_check_groceries:
-                if ingredient_check_products_to_meals is None:
-                    meal.save_to_db()
-                    return meal.json(), 201
-                return {'message': 'This ingredient exists'}
-            return {'message': 'Ingredient does not exist database. Firstly, you have to create it.'}, 404
-        return {'message': 'Meal does not exist. Firstly, you have to create it.'}, 404
-
-    def delete(self, name):
-        data = ProductsToMeals.parser_to_delete.parse_args()
-        ingredient = ProductsToMealsModel.find_by_ingredient(
-            name, data['product'])
-        meal = ProductsToMealsModel.find_by_name(name)
-
-        if meal:
-            if ingredient:
-                ingredient.delete_from_db()
-                return {'message': 'Ingredient deleted successfully'}
-            return {'message': 'Ingredient in the meal not found'}, 404
-        return {'message': "Meal not found"}, 404
-
-    def put(self, name):
-        data = ProductsToMeals.parser.parse_args()
-        meal = ProductsToMealsModel.find_by_name(name)
-        ingredient = ProductsToMealsModel.find_by_ingredient(
-            name, data['product'])
-
-        if meal:
-            if ingredient:
-                ingredient.weight = data['weight']
-                ingredient.save_to_db()
-                return ingredient.json_ingredients(), 201
-            return {'message': 'Ingredient in the meal not found'}, 404
-        return {'message': 'Meal not found'}, 404
-
-
-class MealsList(Resource):
+@blp.route('/fav-meal')
+class MealsList(MethodView):
+    @blp.response(200, FavouriteMealSchema(many=True))
     def get(self):
-        return {'Favourite meals': [meal.name for meal in MealModel.query.all()]}
+        favmeals = MealModel.query.all()
+        return favmeals
+
+    @blp.arguments(FavouriteMealSchema)
+    @blp.response(201, FavouriteMealSchema)
+    def post(self, meal_data):
+        try:
+            favmeal = MealModel(**meal_data)
+            favmeal.save_to_db()
+            return favmeal
+        except IntegrityError:
+            abort(500, message="Favourite meal already exists")
+
+
+@blp.route("/fav-meal/<string:favmeal_id>")
+class Meal(MethodView):
+    def delete(self, favmeal_id):
+        meal = MealModel.query.get_or_404(favmeal_id)
+
+        meal.delete_from_db()
+        return {'message': 'Favourite meal deleted successfully'}, 200
+
+
+@blp.route('/fav-meal/products/<string:favmeal_id>')
+class ProductsToMealsList(MethodView):
+    def get(self, favmeal_id):
+        meals = ProductsToMealsModel.query.filter_by(
+            favmeal_id=favmeal_id).all()
+        meal = ProductsToMealsModel.query.filter_by(
+            favmeal_id=favmeal_id).first()
+
+        try:
+            calories = ProductsToMealsModel.calorie_count(favmeal_id)
+        except AttributeError:
+            abort(500, message="Error occured, Probably you have products in meals, which are not in food database")
+
+        return {"Favmeal Id": favmeal_id, "Favmeal": meal.meal.name, "Products": [{"Product": e.product.foodstuff, "Weight": e.weight} for e in meals], "Calories": calories}
+
+    @blp.arguments(ProductsToFavouriteMealSchema)
+    @blp.response(201, ProductsToFavouriteMealSchema)
+    def post(self, product_data, favmeal_id):
+        check_product_by_id = ProductsToMealsModel.find_product_in_meal_by_id(
+            favmeal_id, product_data['product_id'])
+
+        if check_product_by_id:
+            abort(500, message="The product already exists in this meal.")
+
+        try:
+            product = ProductsToMealsModel(
+                favmeal_id, **product_data)
+            product.save_to_db()
+            return product
+        except IntegrityError:
+            abort(
+                500, message="Error occured during adding a product")
+
+
+@blp.route('/fav-meal/products/<string:favmeal_id>/<string:product_id>')
+class ProductsToMeals(MethodView):
+    def delete(self, favmeal_id, product_id):
+        product = ProductsToMealsModel.find_product_in_meal_by_id(
+            favmeal_id, product_id)
+
+        if product is None:
+            abort(404, message="Meal or the product in the meal or both not found.")
+
+        product.delete_from_db()
+        return {"message": "Product deleted successfully"}, 200
+
+    @blp.arguments(ProductsToFavouriteMealUpdateSchema)
+    @blp.response(200, ProductsToFavouriteMealSchema)
+    def put(self, product_data, favmeal_id, product_id):
+        product = ProductsToMealsModel.find_product_in_meal_by_id(
+            favmeal_id, product_id)
+
+        if product is None:
+            abort(404, message="Meal or the product in the meal or both not found.")
+
+        product.weight = product_data['weight']
+        product.save_to_db()
+        return product

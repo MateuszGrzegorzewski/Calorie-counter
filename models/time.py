@@ -6,8 +6,9 @@ class TimeModel(db.Model):
     __tablename__ = 'time'
 
     id = db.Column(db.Integer, primary_key=True)
-    date = db.Column(db.String(100)) 
-    mealtimes = db.relationship('DailyMealsModel', backref='time', lazy='joined')
+    date = db.Column(db.String(100))
+    mealtimes = db.relationship(
+        'DailyMealsModel', back_populates='time', lazy='joined')
 
     def __init__(self, date):
         self.date = date
