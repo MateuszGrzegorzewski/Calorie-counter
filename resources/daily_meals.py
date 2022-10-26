@@ -1,10 +1,12 @@
-from models.daily_meals import DailyMealsModel, ProductsToDailyMealsModel
 from datetime import date
-from models.meals_fav import ProductsToMealsModel as ProductsOfFavouriteMeal, MealModel
 from flask_smorest import Blueprint, abort
 from flask.views import MethodView
-from schemas import DailyMealsSchema, DailyMealsUpdateSchema, DailyMealsFavmealSchema
 from sqlalchemy.exc import IntegrityError
+from flask_jwt_extended import jwt_required
+
+from models.daily_meals import DailyMealsModel, ProductsToDailyMealsModel
+from models.meals_fav import ProductsToMealsModel as ProductsOfFavouriteMeal, MealModel
+from schemas import DailyMealsSchema, DailyMealsUpdateSchema, DailyMealsFavmealSchema
 
 
 blp = Blueprint("DailyMeals", __name__,
@@ -13,6 +15,7 @@ blp = Blueprint("DailyMeals", __name__,
 
 @blp.route('/daily-meals/products/<string:mealtime>/<string:date>')
 class ProductsToDailyMeals(MethodView):
+    @jwt_required()
     def get(self, mealtime, date=date.today()):
         meal = ProductsToDailyMealsModel.find_by_date_and_mealtime(
             date, mealtime)
@@ -20,6 +23,7 @@ class ProductsToDailyMeals(MethodView):
 
         return {'Date': date.strftime('%Y-%m-%d'), 'Meal': mealtime, 'Products': [{"Product": e.food.foodstuff, "Weight": e.weight} for e in meal], "Calories of the meal": calories}
 
+    @jwt_required()
     @blp.arguments(DailyMealsSchema)
     def post(self, mealtime_data, mealtime, date=date.today()):
         if DailyMealsModel.find_by_date_and_mealtime(date, mealtime) is None:
@@ -27,20 +31,20 @@ class ProductsToDailyMeals(MethodView):
                 404, message="Date or mealtime or both not found. Check that the entered values are correct")
 
         if ProductsToDailyMealsModel.find_by_product(date, mealtime, mealtime_data['product_id']):
-            abort(500, message="The product already exists in this mealtime")
+            abort(409, message="The product already exists in this mealtime")
 
         try:
             meal = ProductsToDailyMealsModel(
                 date, mealtime, mealtime_data['product_id'], mealtime_data['weight'])
             meal.save_to_db()
             return {"Product_id": meal.product_id, "Product": meal.food.foodstuff, "Weight": meal.weight}, 201
-            # lepsze zwracanie wartości !!!!!!
         except IntegrityError:
             abort(500, message="Error occured during adding a product")
 
 
 @blp.route('/daily-meals/products/<string:mealtime>/<string:date>/favmeal')
 class FavmealsToDailyMeals(MethodView):
+    @jwt_required()
     @blp.arguments(DailyMealsFavmealSchema)
     def post(self, mealtime_data, mealtime, date=date.today()):
         favmeal = MealModel.query.get_or_404(mealtime_data['favmeal_id'])
@@ -67,6 +71,7 @@ class FavmealsToDailyMeals(MethodView):
 
 @blp.route('/daily-meals/products/<string:mealtime>/<string:date>/<string:product_id>')
 class ProductOfDailyMeals(MethodView):
+    @jwt_required()
     def delete(self, mealtime, date=date.today(), product_id=None):
         product = ProductsToDailyMealsModel.find_by_product(
             date, mealtime, product_id)
@@ -78,6 +83,7 @@ class ProductOfDailyMeals(MethodView):
         return {'message': "Product deleted successfully"}
 
     @blp.arguments(DailyMealsUpdateSchema)
+    @jwt_required()
     def put(self, mealtime_data, mealtime, date=date.today(), product_id=None):
         product = ProductsToDailyMealsModel.find_by_product(
             date, mealtime, product_id)
@@ -88,8 +94,6 @@ class ProductOfDailyMeals(MethodView):
         product.weight = mealtime_data['weight']
         product.save_to_db()
         return {"Product_id": product.product_id, "Product": product.food.foodstuff, "Weight": product.weight}
-
-        # lepsze zwracanie wartości
 
 
 @blp.route('/daily-meals/products/<string:mealtime>')
@@ -109,6 +113,7 @@ class ProductOfDailyMealsActual(ProductOfDailyMeals):
 
 @blp.route('/daily-meals/<string:date>')
 class DailyMeals (MethodView):
+    @jwt_required()
     def get(self, date=date.today()):
         breakfast = ProductsToDailyMealsModel.find_by_date_and_mealtime(
             date, 'breakfast')

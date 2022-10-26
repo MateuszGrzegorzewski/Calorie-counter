@@ -3,11 +3,13 @@ from flask_smorest import Api
 from models.time import TimeModel
 from models.daily_meals import DailyMealsModel
 from database import db
+from flask_jwt_extended import JWTManager
 
 from resources.food import blp as FoodBlueprint
 from resources.meals_fav import blp as FavoritesMealsBlueprint
 from resources.time import blp as TimeBlueprint
 from resources.daily_meals import blp as DailyMealsBlueprint
+from resources.user import blp as UserBlueprint
 
 
 app = Flask(__name__)
@@ -22,6 +24,9 @@ app.config["OPENAPI_SWAGGER_UI_URL"] = "https://cdn.jsdelivr.net/npm/swagger-ui-
 
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///data.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+
+app.config["JWT_SECRET_KEY"] = "super-secret-password"
+jwt = JWTManager(app)
 
 db.init_app(app)
 api = Api(app)
@@ -45,3 +50,4 @@ api.register_blueprint(FoodBlueprint)
 api.register_blueprint(FavoritesMealsBlueprint)
 api.register_blueprint(TimeBlueprint)
 api.register_blueprint(DailyMealsBlueprint)
+api.register_blueprint(UserBlueprint)

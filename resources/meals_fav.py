@@ -1,7 +1,9 @@
 from sqlalchemy.exc import IntegrityError
-from models.meals_fav import MealModel, ProductsToMealsModel
 from flask_smorest import Blueprint, abort
 from flask.views import MethodView
+from flask_jwt_extended import jwt_required
+
+from models.meals_fav import MealModel, ProductsToMealsModel
 from schemas import FavouriteMealSchema, ProductsToFavouriteMealSchema, ProductsToFavouriteMealUpdateSchema
 
 
@@ -16,6 +18,7 @@ class MealsList(MethodView):
         favmeals = MealModel.query.all()
         return favmeals
 
+    @jwt_required()
     @blp.arguments(FavouriteMealSchema)
     @blp.response(201, FavouriteMealSchema)
     def post(self, meal_data):
@@ -24,11 +27,12 @@ class MealsList(MethodView):
             favmeal.save_to_db()
             return favmeal
         except IntegrityError:
-            abort(500, message="Favourite meal already exists")
+            abort(409, message="Favourite meal already exists")
 
 
 @blp.route("/fav-meal/<string:favmeal_id>")
 class Meal(MethodView):
+    @jwt_required()
     def delete(self, favmeal_id):
         meal = MealModel.query.get_or_404(favmeal_id)
 
@@ -53,12 +57,13 @@ class ProductsToMealsList(MethodView):
 
     @blp.arguments(ProductsToFavouriteMealSchema)
     @blp.response(201, ProductsToFavouriteMealSchema)
+    @jwt_required()
     def post(self, product_data, favmeal_id):
         check_product_by_id = ProductsToMealsModel.find_product_in_meal_by_id(
             favmeal_id, product_data['product_id'])
 
         if check_product_by_id:
-            abort(500, message="The product already exists in this meal.")
+            abort(409, message="The product already exists in this meal.")
 
         try:
             product = ProductsToMealsModel(
@@ -72,6 +77,7 @@ class ProductsToMealsList(MethodView):
 
 @blp.route('/fav-meal/products/<string:favmeal_id>/<string:product_id>')
 class ProductsToMeals(MethodView):
+    @jwt_required()
     def delete(self, favmeal_id, product_id):
         product = ProductsToMealsModel.find_product_in_meal_by_id(
             favmeal_id, product_id)
@@ -82,6 +88,7 @@ class ProductsToMeals(MethodView):
         product.delete_from_db()
         return {"message": "Product deleted successfully"}, 200
 
+    @jwt_required()
     @blp.arguments(ProductsToFavouriteMealUpdateSchema)
     @blp.response(200, ProductsToFavouriteMealSchema)
     def put(self, product_data, favmeal_id, product_id):
