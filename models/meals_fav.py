@@ -5,13 +5,11 @@ class MealModel(db.Model):
     __tablename__ = 'meals-favourite'
 
     id = db.Column(db.Integer, primary_key=True, nullable=False)
-    name = db.Column(db.String(100), unique=True, nullable=False)
+    name = db.Column(db.String(100), nullable=False)
+    user_id = db.Column(db.Integer, nullable=False)
 
     product_to_meals = db.relationship(
         'ProductsToMealsModel', back_populates="meal", lazy='dynamic')
-
-    def __init__(self, name):
-        self.name = name
 
     def save_to_db(self):
         db.session.add(self)
@@ -54,7 +52,8 @@ class ProductsToMealsModel(db.Model):
 
     @classmethod
     def calorie_count(cls, favmeal_id):
-        products = cls.query.filter_by(favmeal_id=favmeal_id).all()
+        products = cls.query.filter_by(
+            favmeal_id=favmeal_id).all()
         caloriess = 0
         for element in products:
             calories_of_the_product = element.product.calories

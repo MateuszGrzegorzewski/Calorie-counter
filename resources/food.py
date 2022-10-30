@@ -1,10 +1,11 @@
 from flask_smorest import Blueprint, abort
 from flask.views import MethodView
 from sqlalchemy.exc import IntegrityError
-from flask_jwt_extended import jwt_required
+from flask_jwt_extended import jwt_required, get_jwt_identity
 
 from models.food import FoodModel
 from schemas import FoodSchema, FoodUpdateSchema
+from models.user import UserModel
 
 
 blp = Blueprint("food", __name__, description="Operations on groceries")
@@ -38,24 +39,34 @@ class Foodstuff(MethodView):
 
     @jwt_required()
     def delete(self, food_id):
+        current_user = get_jwt_identity()
+        check_admin_privilige = UserModel.query.filter_by(
+            id=current_user).filter_by(is_admin=True).first()
 
         food = FoodModel.query.get_or_404(food_id)
 
-        food.delete_from_db()
-        return {"message": "Foodstuff deleted successfully"}, 200
+        if check_admin_privilige:
+            food.delete_from_db()
+            return {"message": "Foodstuff deleted successfully"}, 200
+        abort(401, message="Admin privilige required")
 
     @jwt_required()
     @blp.arguments(FoodUpdateSchema)
     @blp.response(200, FoodSchema)
     def put(self, food_data, food_id):
+        current_user = get_jwt_identity()
+        check_admin_privilige = UserModel.query.filter_by(
+            id=current_user).filter_by(is_admin=True).first()
         food = FoodModel.query.get(food_id)
 
-        if food:
-            food.foodstuff = food_data['foodstuff']
-            food.calories = food_data['calories']
-        else:
-            food = FoodModel(**food_data)
-            food.id = food_id
+        if check_admin_privilige:
+            if food:
+                food.foodstuff = food_data['foodstuff']
+                food.calories = food_data['calories']
+            else:
+                food = FoodModel(**food_data)
+                food.id = food_id
 
-        food.save_to_db()
-        return food
+            food.save_to_db()
+            return food
+        abort(401, message="Admin privilige required")

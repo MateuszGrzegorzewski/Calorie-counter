@@ -2,10 +2,12 @@ from flask import jsonify
 from flask_smorest import Blueprint, abort
 from flask.views import MethodView
 from passlib.hash import pbkdf2_sha256
-from flask_jwt_extended import create_access_token, jwt_required
+from flask_jwt_extended import create_access_token, jwt_required, get_jwt, get_jwt_identity, create_refresh_token
+from datetime import datetime
 
 from schemas import UserSchema
 from models.user import UserModel
+from models.blocklist import Blocklist
 
 blp = Blueprint("Users", "users", description="Operations on users")
 
@@ -32,9 +34,32 @@ class UserLogin(MethodView):
             UserModel.username == user_data["username"]).first()
 
         if user and pbkdf2_sha256.verify(user_data["password"], user.password):
-            access_token = create_access_token(identity=user.id)
-            return jsonify({"message": access_token})
+            access_token = create_access_token(identity=user.id, fresh=True)
+            refresh_token = create_refresh_token(user.id)
+            return jsonify({"access_token": access_token, "refresh_token": refresh_token})
         abort(401, message="Invalid credentials")
+
+
+@blp.route("/logout")
+class UserLokout(MethodView):
+    @jwt_required()
+    def post(self):
+        jti = get_jwt()["jti"]
+        token = Blocklist(jti=jti, created_at=datetime.now())
+        token.save_to_db()
+        return {"message": "Successfully logged out"}, 200
+
+
+@blp.route("/refresh")
+class TokenRefresh(MethodView):
+    @jwt_required(refresh=True)
+    def post(self):
+        current_user = get_jwt_identity()
+        new_token = create_access_token(identity=current_user, fresh=False)
+        jti = get_jwt()["jti"]
+        token = Blocklist(jti=jti, created_at=datetime.now())
+        token.save_to_db()
+        return {"access_token": new_token}, 200
 
 
 @blp.route('/user/<int:user_id>')
@@ -47,6 +72,12 @@ class User(MethodView):
 
     @jwt_required()
     def delete(self, user_id):
+        current_user = get_jwt_identity()
+        check_admin_privilige = UserModel.query.filter_by(
+            id=current_user).filter_by(is_admin=True).first()
+
         user = UserModel.query.get_or_404(user_id)
-        user.delete_from_db()
-        return {"message": "User deleted successfully."}, 200
+        if check_admin_privilige:
+            user.delete_from_db()
+            return {"message": "User deleted successfully."}, 200
+        abort(401, message="Admin privilige required")
