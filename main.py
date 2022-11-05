@@ -112,7 +112,7 @@ def create_app(db_url = None):
 
     @app.before_first_request
     def create_dates_in_tables():
-        if TimeModel.query.first() is None:
+        if TimeModel.query.filter_by(id=1).first() is None:
             TimeModel.save_dates_to_db()
             DailyMealsModel.save_mealtimes_to_db()
         else:
