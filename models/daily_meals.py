@@ -7,12 +7,8 @@ class DailyMealsModel(db.Model):
     __tablename__ = "mealtimes"
 
     id = db.Column(db.Integer, primary_key=True)
-    date = db.Column(db.String(100), db.ForeignKey('time.date'))
-    mealtime = db.Column(db.String(100))
-
-    time = db.relationship("TimeModel", back_populates="mealtimes")
-    products = db.relationship(
-        'ProductsToDailyMealsModel', back_populates='mealtimes', uselist=False)
+    date = db.Column(db.String(100), nullable=False)
+    mealtime = db.Column(db.String(100), nullable=False)
 
     def __init__(self, date, mealtime):
         self.date = date
@@ -36,14 +32,12 @@ class ProductsToDailyMealsModel(db.Model):
 
     id = db.Column(db.Integer, primary_key=True, nullable=False)
     date_of_meal = db.Column(db.String(100), nullable=False)
-    name_of_meal = db.Column(
-        db.String(100), db.ForeignKey('mealtimes.mealtime'), nullable=False)
+    name_of_meal = db.Column(db.String(100), nullable=False)
     product_id = db.Column(db.Integer, db.ForeignKey(
         'groceries.id'), nullable=False)
     weight = db.Column(db.Integer, nullable=False)
     user_id = db.Column(db.Integer, nullable=False)
 
-    mealtimes = db.relationship("DailyMealsModel", back_populates="products")
     food = db.relationship("FoodModel", back_populates="dailymeals")
 
     def __init__(self, date_of_meal, name_of_meal, product_id, weight, user_id):

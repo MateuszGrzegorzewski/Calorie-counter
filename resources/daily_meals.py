@@ -136,6 +136,8 @@ class ProductOfDailyMealsActual(ProductOfDailyMeals):
 class DailyMeals (MethodView):
     @jwt_required()
     def get(self, date=date.today()):
+        check_exisiting_data = ProductsToDailyMealsModel(
+        ).query.filter_by(date_of_meal=date).first()
         display_date = ProductsToDailyMealsModel.query.filter_by(
             date_of_meal=date).first().date_of_meal
         breakfast = ProductsToDailyMealsModel.find_by_date_and_mealtime(
@@ -154,6 +156,9 @@ class DailyMeals (MethodView):
             date, 'dinner')
         calories_of_dinner = ProductsToDailyMealsModel.calorie_count(
             'dinner', date)
+
+        if check_exisiting_data is None:
+            abort(404, message="Data not found")
 
         breakfast_json = {'Breakfast': [s.json_ingredients(
         ) for s in breakfast], 'Calories of the meal': calories_of_breakfast}

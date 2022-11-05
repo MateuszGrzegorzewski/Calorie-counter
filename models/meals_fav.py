@@ -2,7 +2,7 @@ from database import db
 
 
 class MealModel(db.Model):
-    __tablename__ = 'meals-favourite'
+    __tablename__ = 'meals_favourite'
 
     id = db.Column(db.Integer, primary_key=True, nullable=False)
     name = db.Column(db.String(100), nullable=False)
@@ -25,7 +25,7 @@ class ProductsToMealsModel(db.Model):
 
     id = db.Column(db.Integer, primary_key=True, nullable=False)
     favmeal_id = db.Column(db.Integer, db.ForeignKey(
-        'meals-favourite.id'), nullable=False)
+        'meals_favourite.id'), nullable=False)
     product_id = db.Column(db.Integer, db.ForeignKey(
         'groceries.id'), nullable=False)
     weight = db.Column(db.Integer, nullable=False)
