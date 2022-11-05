@@ -7,7 +7,7 @@ from flask_jwt_extended import jwt_required, get_jwt_identity
 from models.daily_meals import DailyMealsModel, ProductsToDailyMealsModel
 from models.meals_fav import ProductsToMealsModel as ProductsOfFavouriteMeal, MealModel
 from schemas import DailyMealsSchema, DailyMealsUpdateSchema, DailyMealsFavmealSchema
-
+from models.food import FoodModel
 
 blp = Blueprint("DailyMeals", __name__,
                 description="Operations on daily meals")
@@ -16,7 +16,7 @@ blp = Blueprint("DailyMeals", __name__,
 @blp.route('/daily-meals/products/<string:mealtime>/<string:date>')
 class ProductsToDailyMeals(MethodView):
     @jwt_required()
-    def get(self, mealtime, date=date.today()):
+    def get(self, mealtime, date=date.today().strftime('%Y-%m-%d')):
         meal = ProductsToDailyMealsModel.find_by_date_and_mealtime_one_element(
             date, mealtime)
         meals = ProductsToDailyMealsModel.find_by_date_and_mealtime(
@@ -26,11 +26,11 @@ class ProductsToDailyMeals(MethodView):
         if meal is None:
             abort(404, message="Informations not found")
 
-        return {'Date': date.strftime('%Y-%m-%d'), 'Meal': mealtime, 'Products': [{"Product": e.food.foodstuff, "Weight": e.weight} for e in meals], "Calories of the meal": calories}
+        return {'Date': date, 'Meal': mealtime, 'Products': [{"Product": e.food.foodstuff, "Weight": e.weight} for e in meals], "Calories of the meal": calories}
 
     @jwt_required()
     @blp.arguments(DailyMealsSchema)
-    def post(self, mealtime_data, mealtime, date=date.today()):
+    def post(self, mealtime_data, mealtime, date=date.today().strftime('%Y-%m-%d')):
         meal = DailyMealsModel.find_by_date_and_mealtime(date, mealtime)
         if meal is None:
             abort(
@@ -38,6 +38,9 @@ class ProductsToDailyMeals(MethodView):
 
         if ProductsToDailyMealsModel.find_by_product(date, mealtime, mealtime_data['product_id']):
             abort(409, message="The product already exists in this mealtime")
+
+        if FoodModel.query.filter_by(id=mealtime_data['product_id']).first() is None:
+            abort(404, message="Product not found in database")
 
         try:
             meal = ProductsToDailyMealsModel(
@@ -52,13 +55,17 @@ class ProductsToDailyMeals(MethodView):
 class FavmealsToDailyMeals(MethodView):
     @jwt_required()
     @blp.arguments(DailyMealsFavmealSchema)
-    def post(self, mealtime_data, mealtime, date=date.today()):
+    def post(self, mealtime_data, mealtime, date=date.today().strftime('%Y-%m-%d')):
         meal = DailyMealsModel.find_by_date_and_mealtime(date, mealtime)
         if meal is None:
             abort(
                 404, message="Date or mealtime or both not found. Check that the entered values are correct")
 
-        favmeal = MealModel.query.get_or_404(mealtime_data['favmeal_id'])
+        favmeal = MealModel.query.filter_by(id=mealtime_data['favmeal_id']).filter_by(
+            user_id=get_jwt_identity()).first()
+        if favmeal is None:
+            abort(404, message="Favourite meal not found")
+
         favmeals = ProductsOfFavouriteMeal.query.filter_by(
             favmeal_id=favmeal.id).all()
 
@@ -83,7 +90,7 @@ class FavmealsToDailyMeals(MethodView):
 @blp.route('/daily-meals/products/<string:mealtime>/<string:date>/<int:product_id>')
 class ProductOfDailyMeals(MethodView):
     @jwt_required()
-    def delete(self, mealtime, date=date.today(), product_id=None):
+    def delete(self, mealtime, date=date.today().strftime('%Y-%m-%d'), product_id=None):
         meal = DailyMealsModel.find_by_date_and_mealtime(date, mealtime)
         product = ProductsToDailyMealsModel.find_by_product(
             date, mealtime, product_id)
@@ -100,7 +107,7 @@ class ProductOfDailyMeals(MethodView):
 
     @blp.arguments(DailyMealsUpdateSchema)
     @jwt_required()
-    def put(self, mealtime_data, mealtime, date=date.today(), product_id=None):
+    def put(self, mealtime_data, mealtime, date=date.today().strftime('%Y-%m-%d'), product_id=None):
         meal = DailyMealsModel.find_by_date_and_mealtime(date, mealtime)
         product = ProductsToDailyMealsModel.find_by_product(
             date, mealtime, product_id)
@@ -135,11 +142,9 @@ class ProductOfDailyMealsActual(ProductOfDailyMeals):
 @blp.route('/daily-meals/<string:date>')
 class DailyMeals (MethodView):
     @jwt_required()
-    def get(self, date=date.today()):
-        check_exisiting_data = ProductsToDailyMealsModel(
-        ).query.filter_by(date_of_meal=date).first()
-        display_date = ProductsToDailyMealsModel.query.filter_by(
-            date_of_meal=date).first().date_of_meal
+    def get(self, date=date.today().strftime('%Y-%m-%d')):
+        check_exisiting_data = ProductsToDailyMealsModel.query.filter_by(
+            date_of_meal=date).first()
         breakfast = ProductsToDailyMealsModel.find_by_date_and_mealtime(
             date, 'breakfast')
         calories_of_breakfast = ProductsToDailyMealsModel.calorie_count(
@@ -172,7 +177,7 @@ class DailyMeals (MethodView):
         total_calories = calories_of_breakfast + \
             calories_of_lunch+calories_of_snack+calories_of_dinner
 
-        return {'Date': display_date, 'Calories of the day': total_calories, "Meals": [breakfast_json, lunch_json, snack_json, dinner_json]}
+        return {'Date': date, 'Calories of the day': total_calories, "Meals": [breakfast_json, lunch_json, snack_json, dinner_json]}
 
 
 @blp.route('/daily-meals')

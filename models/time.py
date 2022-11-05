@@ -12,11 +12,14 @@ class TimeModel(db.Model):
         self.date = date
 
     def save_dates_to_db():
-        start = datetime.datetime.strptime("2022-10-01", "%Y-%m-%d")
-        end = datetime.datetime.strptime("2022-11-30", "%Y-%m-%d")
-        date_generated = (start + datetime.timedelta(days=x)
-                          for x in range(0, (end-start).days + 1))
+        if TimeModel.query.first() is None:
+            start = datetime.datetime.strptime("2022-10-01", "%Y-%m-%d")
+            end = datetime.datetime.strptime("2022-11-30", "%Y-%m-%d")
+            date_generated = (start + datetime.timedelta(days=x)
+                              for x in range(0, (end-start).days + 1))
 
-        for date in date_generated:
-            db.session.add(TimeModel(date.strftime("%Y-%m-%d")))
-            db.session.commit()
+            for date in date_generated:
+                db.session.add(TimeModel(date.strftime("%Y-%m-%d")))
+                db.session.commit()
+        else:
+            pass

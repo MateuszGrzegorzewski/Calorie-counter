@@ -4,6 +4,9 @@ from flask_jwt_extended import JWTManager
 from datetime import timedelta
 from flask_migrate import Migrate
 import os
+from dotenv import load_dotenv
+from sqlalchemy.exc import IntegrityError
+
 
 from database import db
 from resources.food import blp as FoodBlueprint
@@ -21,6 +24,7 @@ from models.user import UserModel
 
 def create_app(db_url=None):
     app = Flask(__name__)
+    load_dotenv()
 
     ACCESS_EXPIRES = timedelta(minutes=30)
 

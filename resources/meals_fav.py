@@ -43,6 +43,14 @@ class Meal(MethodView):
     @jwt_required()
     def delete(self, favmeal_id):
         meal = MealModel.query.get_or_404(favmeal_id)
+        products_in_meal = ProductsToMealsModel.query.filter_by(
+            favmeal_id=favmeal_id).all()
+        check_products_in_meal = ProductsToMealsModel.query.filter_by(
+            favmeal_id=favmeal_id).first()
+
+        if check_products_in_meal is not None:
+            for product in products_in_meal:
+                product.delete_from_db()
 
         if meal.user_id != get_jwt_identity():
             abort(401, message="No authorisation to access this data")

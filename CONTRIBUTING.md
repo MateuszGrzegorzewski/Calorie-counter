@@ -13,5 +13,9 @@ docker run -dp 5000:5000 -w /app -v "$(pwd):/app" IMAGE_NAME sh -c "flask run --
 ....
 
 
+### How to create .env
 
-# the next thing how to create env and so on
+....
+1. Fistly create .env
+2. In .env: DATABASE_URL=postgresql://YOUR_DEVELOPMENT_URL
+....

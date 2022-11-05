@@ -1,4 +1,5 @@
 from flask_jwt_extended import get_jwt_identity
+
 from database import db
 from models.time import TimeModel
 
@@ -15,12 +16,15 @@ class DailyMealsModel(db.Model):
         self.mealtime = mealtime
 
     def save_mealtimes_to_db():
-        for date in TimeModel.query.all():
-            db.session.add(DailyMealsModel(date.date, 'breakfast'))
-            db.session.add(DailyMealsModel(date.date, 'lunch'))
-            db.session.add(DailyMealsModel(date.date, 'snack'))
-            db.session.add(DailyMealsModel(date.date, 'dinner'))
-            db.session.commit()
+        if DailyMealsModel.query.first() is None:
+            for date in TimeModel.query.all():
+                db.session.add(DailyMealsModel(date.date, 'breakfast'))
+                db.session.add(DailyMealsModel(date.date, 'lunch'))
+                db.session.add(DailyMealsModel(date.date, 'snack'))
+                db.session.add(DailyMealsModel(date.date, 'dinner'))
+                db.session.commit()
+        else:
+            pass
 
     @classmethod
     def find_by_date_and_mealtime(cls, date, mealtime):

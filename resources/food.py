@@ -50,6 +50,9 @@ class Foodstuff(MethodView):
             return {"message": "Foodstuff deleted successfully"}, 200
         abort(401, message="Admin privilige required")
 
+        # Uwaga - do poprawy, jak będzie gdzies użyte będzie erro. Więc można będzie usunąc, tylko 
+        # nie użyte - ale do sprawdzenia
+
     @jwt_required()
     @blp.arguments(FoodUpdateSchema)
     @blp.response(200, FoodSchema)
