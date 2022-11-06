@@ -4,8 +4,8 @@ from sqlalchemy.exc import IntegrityError
 from flask_jwt_extended import jwt_required, get_jwt_identity
 
 from models.food import FoodModel
-from schemas import FoodSchema, FoodUpdateSchema
 from models.user import UserModel
+from schemas import FoodSchema, FoodUpdateSchema
 
 
 blp = Blueprint("food", __name__, description="Operations on groceries")
@@ -45,13 +45,14 @@ class Foodstuff(MethodView):
 
         food = FoodModel.query.get_or_404(food_id)
 
-        if check_admin_privilige:
-            food.delete_from_db()
-            return {"message": "Foodstuff deleted successfully"}, 200
-        abort(401, message="Admin privilige required")
-
-        # Uwaga - do poprawy, jak będzie gdzies użyte będzie erro. Więc można będzie usunąc, tylko 
-        # nie użyte - ale do sprawdzenia
+        try:
+            if check_admin_privilige:
+                food.delete_from_db()
+                return {"message": "Foodstuff deleted successfully"}, 200
+            abort(401, message="Admin privilige required")
+        except IntegrityError:
+            abort(
+                409, message="The product can not be deleted. Probably it is used in other places such as favourite meals or daily meals")
 
     @jwt_required()
     @blp.arguments(FoodUpdateSchema)

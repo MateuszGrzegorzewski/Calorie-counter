@@ -5,9 +5,10 @@ from passlib.hash import pbkdf2_sha256
 from flask_jwt_extended import create_access_token, jwt_required, get_jwt, get_jwt_identity, create_refresh_token
 from datetime import datetime
 
-from schemas import UserSchema
 from models.user import UserModel
 from models.blocklist import Blocklist
+from schemas import UserSchema
+
 
 blp = Blueprint("Users", "users", description="Operations on users")
 

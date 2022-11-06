@@ -6,8 +6,9 @@ from flask_jwt_extended import jwt_required, get_jwt_identity
 
 from models.daily_meals import DailyMealsModel, ProductsToDailyMealsModel
 from models.meals_fav import ProductsToMealsModel as ProductsOfFavouriteMeal, MealModel
-from schemas import DailyMealsSchema, DailyMealsUpdateSchema, DailyMealsFavmealSchema
 from models.food import FoodModel
+from schemas import DailyMealsSchema, DailyMealsUpdateSchema, DailyMealsFavmealSchema
+
 
 blp = Blueprint("DailyMeals", __name__,
                 description="Operations on daily meals")
@@ -24,7 +25,7 @@ class ProductsToDailyMeals(MethodView):
         calories = ProductsToDailyMealsModel.calorie_count(mealtime, date)
 
         if meal is None:
-            abort(404, message="Informations not found")
+            abort(404, message="Meal not found")
 
         return {'Date': date, 'Meal': mealtime, 'Products': [{"Product": e.food.foodstuff, "Weight": e.weight} for e in meals], "Calories of the meal": calories}
 
@@ -34,7 +35,7 @@ class ProductsToDailyMeals(MethodView):
         meal = DailyMealsModel.find_by_date_and_mealtime(date, mealtime)
         if meal is None:
             abort(
-                404, message="Date or mealtime or both not found. Check that the entered values are correct")
+                404, message="Date or mealtime not found. Check that the entered values are correct")
 
         if ProductsToDailyMealsModel.find_by_product(date, mealtime, mealtime_data['product_id']):
             abort(409, message="The product already exists in this mealtime")
@@ -97,7 +98,7 @@ class ProductOfDailyMeals(MethodView):
 
         if meal is None:
             abort(
-                404, message="Date or mealtime or both not found. Check that the entered values are correct")
+                404, message="Date or mealtime not found. Check that the entered values are correct")
 
         if product is None:
             abort(404, message="Product not found in this mealtime")
@@ -114,7 +115,7 @@ class ProductOfDailyMeals(MethodView):
 
         if meal is None:
             abort(
-                404, message="Date or mealtime or both not found. Check that the entered values are correct")
+                404, message="Date or mealtime. Check that the entered values are correct")
 
         if product is None:
             abort(404, message="Product not found in this mealtime")

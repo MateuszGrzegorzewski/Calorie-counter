@@ -4,8 +4,9 @@ from flask.views import MethodView
 from flask_jwt_extended import jwt_required, get_jwt_identity
 
 from models.meals_fav import MealModel, ProductsToMealsModel
-from schemas import FavouriteMealSchema, ProductsToFavouriteMealSchema, ProductsToFavouriteMealUpdateSchema
 from models.food import FoodModel
+from schemas import FavouriteMealSchema, ProductsToFavouriteMealSchema, ProductsToFavouriteMealUpdateSchema
+
 
 blp = Blueprint("Favourite meals", __name__,
                 description="Operations on favourite meals")
