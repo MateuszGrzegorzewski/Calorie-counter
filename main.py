@@ -47,6 +47,10 @@ def create_app(db_url=None):
     migrate = Migrate(app, db)
     api = Api(app)
 
+    @app.before_first_request
+    def create_all_tables():
+        db.create_all()
+
     @jwt.token_in_blocklist_loader
     def check_if_token_in_blocklist(jwt_header, jwt_payload):
         jti = jwt_payload["jti"]

@@ -17,6 +17,7 @@ The application used:
 - Docker
 
 The main objective of writing this application was to learn REST APIs using Flask. In future app will be developed with more funcions such like:
+ * tests
  * setting daily goals,
  * virtual fridge - The user can add purchased products to the app and then, when he or she enters the products eaten, the app automatically modifies the information on the products used in the meals. The app can also inform the user when shopping is required.
 
@@ -27,7 +28,7 @@ Without adding this file, the data will be stored in SQLite.
 
 
 2. Run with Docker:
-    a) building the Dockerfile: docker build -t IMAGE_NAME .
-    b) running the Dockerfile: docker run -dp 5000:5000 -w /app -v "$(pwd):/app" IMAGE_NAME sh -c "flask run --host 0.0.0.0"
+    * building the Dockerfile: docker build -t IMAGE_NAME .
+    * running the Dockerfile: docker run -dp 5000:5000 -w /app -v "$(pwd):/app" IMAGE_NAME sh -c "flask run --host 0.0.0.0"
 
 
