@@ -14,7 +14,7 @@ class TimeModel(db.Model):
     def save_dates_to_db():
         if TimeModel.query.first() is None:
             start = datetime.datetime.strptime("2022-10-01", "%Y-%m-%d")
-            end = datetime.datetime.strptime("2023-01-31", "%Y-%m-%d")
+            end = datetime.datetime.strptime("2023-10-01", "%Y-%m-%d")
             date_generated = (start + datetime.timedelta(days=x)
                               for x in range(0, (end-start).days + 1))
 
